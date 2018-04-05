@@ -2,6 +2,10 @@
 defmodule Elsh.Connection do
   defstruct host: nil, ssh_options: {}, conn_id: nil
 
+  # Connects to a %Elsh.Host{}.
+  #
+  # @param host [%Elsh.Host{}]
+  # @return [%Elsh.Connection{}]
   def connect(host, ssh_port \\ 22, timeout \\ 30) do
     :ok = :ssh.start()
     {:ok, pid} = :ssh.connect(host.label, ssh_port, [])
@@ -9,6 +13,13 @@ defmodule Elsh.Connection do
     %Elsh.Connection{host: host, conn_id: pid, ssh_options: %{port: ssh_port, timeout: timeout}}
   end
 
+  # Runs a command on the remote host, contained in +conn+.
+  #
+  # @param conn [%Elsh.Connection{}]
+  # @param command [String]
+  # @return [{:ok, String, Integer}] Where +String+ is the stdout/stderr text
+  #   returned from command; +Integer+ is the status code resulting from the
+  #   command.
   def exec(conn, command) when is_binary(command) do
     command = String.to_char_list(command)
     run(conn, command)
@@ -18,12 +29,23 @@ defmodule Elsh.Connection do
     run(conn, command)
   end
 
+  # Runs a command on the remote host, contained in +conn+.
+  #
+  # @param conn [%Elsh.Connection{}]
+  # @param command [String]
+  # @return [{:ok, String, Integer}] Where +String+ is the stdout/stderr text
+  #   returned from command; +Integer+ is the status code resulting from the
+  #   command.
   def run(conn, command) do
     case open_channel_and_exec(conn, command) do
       {:error, response} -> {:error, response}
       channel_id -> get_response(conn, channel_id, "", "", nil, false)
     end
   end
+
+  #----------------------------------------------------------------------------
+  # PRIVATES
+  #----------------------------------------------------------------------------
 
   defp open_channel_and_exec(conn, command) do
     case :ssh_connection.session_channel(conn.conn_id, conn.ssh_options.timeout) do
